@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src file:; style-src file: 'unsafe-inline'">
+  <meta name="color-scheme" content="light dark">
+  <title>Water Tracker — Settings</title>
+  <style>
+    body { margin: 0; padding: 20px; font: 14px/1.4 system-ui, "Segoe UI", sans-serif; }
+    h1 { margin: 0 0 4px; font-size: 18px; }
+    #status { margin: 0 0 16px; opacity: .7; }
+    form { display: grid; gap: 12px; }
+    label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    label small { display: block; opacity: .6; }
+    input[type=number] { width: 70px; }
+    input:invalid { outline: 2px solid #e5484d; }
+    .row { display: flex; gap: 6px; align-items: center; }
+    #saved { height: 18px; margin-top: 12px; color: #2a9d5c; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Water Tracker</h1>
+  <p id="status"></p>
+  <form id="f" autocomplete="off">
+    <label>Remind every <span class="row"><input name="intervalMin" type="number" min="1" max="480" required> min</span></label>
+    <label>Snooze for <span class="row"><input name="snoozeMin" type="number" min="1" max="120" required> min</span></label>
+    <label>Daily goal <span class="row"><input name="goal" type="number" min="1" max="50" required> drinks</span></label>
+    <label>Active hours <span class="row"><input name="activeStart" type="time" required> – <input name="activeEnd" type="time" required></span></label>
+    <label><span>Pause when idle<small>0 = never</small></span> <span class="row"><input name="idleMin" type="number" min="0" max="240" required> min</span></label>
+    <label>Start at login <input name="autostart" type="checkbox"></label>
+  </form>
+  <div id="saved"></div>
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src file:; style-src file:; img-src file:">
+  <title>Water Tracker</title>
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <div id="app" data-state="hidden">
+    <div id="bubble">
+      <p id="msg">Time for water!</p>
+      <p id="stats"></p>
+      <div class="btns">
+        <button id="drink" type="button">I drank</button>
+        <button id="snooze" type="button">Snooze</button>
+      </div>
+    </div>
+    <div id="char" class="placeholder"></div>
+  </div>
+  <script src="overlay.js"></script>
+</body>
+</html>

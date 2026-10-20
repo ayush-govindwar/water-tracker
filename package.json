@@ -1,0 +1,62 @@
+{
+  "name": "water-tracker",
+  "version": "1.0.0",
+  "description": "Tiny always-on-top overlay that reminds you to drink water.",
+  "main": "src/main.js",
+  "author": "ag",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "icons": "node scripts/make-icons.js",
+    "test": "node --test test/scheduler.test.js",
+    "test:e2e": "node test/e2e.js",
+    "dist": "electron-builder --win",
+    "dist:cross": "electron-builder --win -c.win.signAndEditExecutable=false"
+  },
+  "build": {
+    "appId": "com.ag.watertracker",
+    "productName": "Water Tracker",
+    "files": [
+      "src/**",
+      "assets/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Water-Tracker-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Water-Tracker-Portable-${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^44.9.2",
+    "electron-builder": "^26.15.3",
+    "playwright-core": "^1.64.1"
+  }
+}

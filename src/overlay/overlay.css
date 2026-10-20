@@ -1,0 +1,45 @@
+:root {
+  --cell-w: 96px;
+  --cell-h: 120px;
+  --ease: cubic-bezier(.2, .9, .3, 1.1);
+}
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; font: 13px/1.3 system-ui, "Segoe UI", sans-serif; }
+#app { position: fixed; inset: 0; }
+
+/* speech bubble */
+#bubble {
+  position: absolute; right: 112px; bottom: 18px; width: 190px; box-sizing: border-box;
+  padding: 10px 12px; border-radius: 12px; background: #fff; color: #17324d;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+  opacity: 0; transform: translateX(16px); pointer-events: none;
+  transition: opacity .2s, transform .3s var(--ease);
+}
+#bubble::after { content: ""; position: absolute; right: -6px; bottom: 22px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); }
+#app[data-state=peek] #bubble, #app[data-state=loop] #bubble { opacity: 1; transform: none; pointer-events: auto; }
+#bubble p { margin: 0; }
+#msg { font-weight: 600; }
+#stats { margin-top: 2px; font-size: 11px; color: #5b7a99; }
+.btns { display: flex; gap: 6px; margin-top: 8px; }
+button { flex: 1; padding: 5px 0; border: 0; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+#drink { background: #3aa0ff; color: #fff; }
+#snooze { background: #e6eef6; color: #17324d; }
+button:hover { filter: brightness(.94); }
+button:disabled { opacity: .5; cursor: default; }
+
+/* character */
+#char { position: absolute; right: 8px; bottom: 0; width: var(--cell-w); height: var(--cell-h); }
+
+/* placeholder box: slide in/out from the right edge */
+#char.placeholder { background: #3aa0ff; border-radius: 14px; transition: transform .4s var(--ease); }
+#app[data-state=hidden] .placeholder, #app[data-state^=exit] .placeholder { transform: translateX(140px); }
+#app[data-state=loop] .placeholder { animation: bob 1.4s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-6px); } }
+
+/* sprite sheets: one horizontal strip of N cells per state; --img/--n set from JS */
+#char.sprite { background: var(--img) 0 0 / calc(var(--n) * var(--cell-w)) var(--cell-h) no-repeat; visibility: hidden; }
+#app[data-state=peek] .sprite, #app[data-state=loop] .sprite, #app[data-state^=exit] .sprite { visibility: visible; }
+@keyframes once  { to { background-position-x: calc((var(--n) - 1) * -1 * var(--cell-w)); } }
+@keyframes cycle { to { background-position-x: calc(var(--n) * -1 * var(--cell-w)); } }
+/* one-shot: jump-none holds first AND last frame, so N cells play as N frames */
+#app[data-state=peek] .sprite, #app[data-state^=exit] .sprite { animation: once calc(var(--n) / var(--fps) * 1s) steps(var(--n), jump-none) forwards; }
+#app[data-state=loop] .sprite { animation: cycle calc(var(--n) / var(--fps) * 1s) steps(var(--n)) infinite; }
