@@ -5,34 +5,19 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const zlib = require('zlib');
 
 const ROOT = path.join(__dirname, '..');
 const MIN = 60000;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-e2e-'));
 const userData = path.join(tmp, 'profile');
-const spriteDir = path.join(tmp, 'sprites');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const step = (m) => console.log('•', m);
-
-// Dummy sprite sheet: n cells of 96x120, cell i solid red = 20*i+10 (so a pixel tells us which frame is on screen).
-function sheet(n) {
-  const W = 96 * n, H = 120;
-  const raw = Buffer.alloc((W * 4 + 1) * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const o = y * (W * 4 + 1) + 1 + x * 4;
-    raw[o] = 20 * Math.floor(x / 96) + 10; raw[o + 3] = 255;
-  }
-  const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const b = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(zlib.crc32(b)); return Buffer.concat([l, b, c]); };
-  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr[8] = 8; ihdr[9] = 6;
-  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
-}
 
 async function launch(extraEnv = {}) {
   const app = await _electron.launch({
     executablePath: require('electron'),
     args: [ROOT],
-    env: { ...process.env, WT_TEST: '1', WT_USER_DATA: userData, ...extraEnv },
+    env: { ...process.env, WT_TEST: '1', WT_USER_DATA: userData, WT_DESTROY_MS: '5000', ...extraEnv },
   });
   const t0 = Date.now();
   while (!(await app.evaluate(() => !!globalThis.__wt))) {
@@ -40,7 +25,7 @@ async function launch(extraEnv = {}) {
     await sleep(100);
   }
   // the dev machine may genuinely be idle / outside 09-22: neutralise both (covered by unit tests)
-  await app.evaluate(() => { __wt.sched.idleSeconds = () => 0; if (!__wt.store.get('settings')) __wt.store.set('settings', { activeStart: '00:00', activeEnd: '00:00' }); });
+  await app.evaluate(() => { __wt.sched.idleSeconds = () => 0; if (!__wt.store.get('settings')) __wt.store.set('settings', { activeStart: '00:00', activeEnd: '00:00', love: false }); });
   return app;
 }
 const until = async (fn, what, ms = 8000) => {
@@ -49,7 +34,7 @@ const until = async (fn, what, ms = 8000) => {
   assert.fail(`timeout waiting for: ${what}`);
 };
 const rstate = (app) => app.evaluate(() => __wt.overlay.webContents.executeJavaScript('document.getElementById("app").dataset.state'));
-const visible = (app) => app.evaluate(() => __wt.overlay.isVisible());
+const visible = (app) => app.evaluate(() => !!__wt.overlay?.isVisible());
 const click = (app, id) => app.evaluate((_, id) => __wt.overlay.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(id)}).click()`), id);
 const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
 
@@ -60,6 +45,7 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
 
   step('phase 1: overlay window flags + placement');
   assert.equal(await visible(app), false, 'hidden until due');
+  assert.equal(await app.evaluate(() => __wt.overlay == null), true, 'no overlay renderer while idle');
   assert.equal(await app.evaluate(() => !!__wt.tray), true, 'tray exists');
   await app.evaluate(() => __wt.sched.remind());
   await until(() => visible(app), 'overlay visible');
@@ -72,17 +58,18 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   assert.equal(info.top, true);
   assert.equal(info.b.x + info.b.width, info.wa.x + info.wa.width, 'flush right of workArea');
   assert.equal(info.b.y + info.b.height, info.wa.y + info.wa.height, 'flush to workArea bottom (above taskbar)');
-  await until(async () => (await rstate(app)) === 'loop', 'peek -> loop (placeholder)');
-  const shot = path.join(tmp, 'overlay-placeholder.png');
-  fs.writeFileSync(shot, (await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64')))), 'base64');
-  step(`  placeholder screenshot: ${shot}`);
-  fs.copyFileSync(shot, path.join(ROOT, 'test', 'last-overlay.png'));
+  await until(async () => (await rstate(app)) === 'loop', 'peek -> loop');
 
   step('phase 2: drink -> count 1, due +30m, window hides');
   await click(app, 'drink');
   await until(async () => !(await visible(app)), 'overlay hides after exit');
   assert.equal(await get(app, 'count'), 1);
   assert.ok(near(await get(app, 'dueAt'), (await now()) + 30 * MIN), 'dueAt = now+30m');
+
+  step('perf: overlay renderer is destroyed after hiding; idle = no Tab process');
+  await until(() => app.evaluate(() => __wt.overlay == null), 'overlay destroyed', 10000);
+  const procs = await app.evaluate(({ app }) => app.getAppMetrics().map((p) => p.type));
+  assert.ok(!procs.includes('Tab'), `no renderer left: ${procs}`);
 
   step('phase 2: snooze -> +5m, re-fires at 5m, not before');
   await app.evaluate(() => __wt.sched.remind());
@@ -159,39 +146,68 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   fs.copyFileSync(spath, path.join(ROOT, 'test', 'last-settings.png'));
   await app.close();
 
-  step('phase 4: sprite sheets (dummy art, 8/12/10/10 frames) via steps()');
-  fs.mkdirSync(spriteDir);
-  const frames = { 'peek-in': 8, 'drink-loop': 12, 'exit-drank': 10, 'exit-snooze': 10 };
-  for (const [f, n] of Object.entries(frames)) fs.writeFileSync(path.join(spriteDir, `${f}.png`), sheet(n));
-  app = await launch({ WT_SPRITE_DIR: spriteDir });
-  await app.evaluate(() => __wt.sched.remind());
-  await until(() => visible(app), 'visible');
-  // sample the peek animation: position must always sit on a whole cell, and pixel colour must match that cell
-  const seen = new Set();
-  const t0 = Date.now();
-  while (Date.now() - t0 < 700 && (await rstate(app)) === 'peek') {
-    const s = await app.evaluate(async () => {
-      const x = await __wt.overlay.webContents.executeJavaScript('getComputedStyle(document.getElementById("char")).backgroundPositionX');
-      const img = await __wt.overlay.webContents.capturePage();
-      const { width, height } = img.getSize();
-      const sf = width / 320;
-      const bmp = img.toBitmap(); // BGRA on macOS/Windows
-      const px = Math.round((320 - 8 - 48) * sf), py = Math.round((150 - 60) * sf);
-      const o = (py * width + px) * 4;
-      return { x, r: bmp[o + 2] };
-    });
-    const cell = Math.round(-parseFloat(s.x) / 96);
-    assert.ok(Math.abs(-parseFloat(s.x) - cell * 96) < 0.5, `on cell boundary, got ${s.x}`);
-    if (Math.abs(s.r - (20 * cell + 10)) <= 2) seen.add(cell); // rendering lags position by a frame sometimes; collect matches
-  }
-  assert.ok(seen.size >= 2, `pixels followed frames, saw cells ${[...seen]}`);
-  await until(async () => (await rstate(app)) === 'loop', 'peek -> loop');
-  const n = await app.evaluate(() => __wt.overlay.webContents.executeJavaScript('getComputedStyle(document.getElementById("char")).getPropertyValue("--n")'));
-  assert.equal(n.trim(), '12', 'loop sheet = 12 frames');
+  step('character: walk-in -> drink loop -> goal exit (confetti) / sulk exit; cups; giggle; tray perks');
+  app = await launch({ WT_USER_DATA: path.join(tmp, 'profile-char'), WT_DESTROY_MS: '60000' });
+  await app.evaluate(() => { __wt.store.set('count', 7); __wt.sched.remind(); });
+  await until(async () => (await visible(app)) && (await rstate(app)) === 'peek', 'peek (walk-in)');
+  const js = (code) => app.evaluate((_, c) => __wt.overlay.webContents.executeJavaScript(c), code);
+  assert.deepEqual(await js('[document.querySelectorAll(".cup").length, document.querySelectorAll(".cup.full").length]'), [8, 7], 'cups render');
+  assert.equal(await js('document.getElementById("count").textContent'), '7 of 8 today');
+  await until(async () => (await rstate(app)) === 'loop', 'walk-in ends -> loop', 4000);
+  assert.ok((await js('document.getElementById("sayText").textContent')).length > 0, 'she says something');
+  assert.equal(await js('getComputedStyle(document.getElementById("armR")).animationName'), 'drink-arm', 'drinking');
+  await js('window.api.setInteractive(true); window.api.setInteractive(false); 1');
+  await js('document.getElementById("bob").dispatchEvent(new MouseEvent("click", {bubbles: true})); 1');
+  assert.equal(await js('document.getElementById("app").classList.contains("giggle")'), true, 'giggle on tap');
+  await sleep(1800); // mid-loop frame
+  fs.writeFileSync(path.join(ROOT, 'test', 'last-overlay.png'), await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64'))), 'base64');
   await click(app, 'drink');
-  await until(async () => !(await visible(app)), 'exit-drank finishes and window hides');
-  const last = await app.evaluate(() => __wt.overlay.webContents.executeJavaScript('(()=>{const c=getComputedStyle(document.getElementById("char"));return [c.getPropertyValue("--n").trim(), c.backgroundPositionX]})()'));
-  assert.deepEqual(last, ['10', `${-9 * 96}px`], 'exit holds on last (10th) frame');
+  await until(async () => (await rstate(app)) === 'exit-goal', 'goal exit');
+  assert.equal(await js('document.querySelectorAll(".cup.full").length'), 8, 'cup filled');
+  assert.equal(await js('getComputedStyle(document.querySelector("#confetti i")).animationName'), 'confetti');
+  await until(async () => !(await visible(app)), 'walks off and hides', 5000);
+  assert.equal(await get(app, 'count'), 8);
+  await app.evaluate(() => __wt.sched.remind());
+  await until(async () => (await rstate(app)) === 'loop', 'loop again');
+  await click(app, 'snooze');
+  await until(async () => (await rstate(app)) === 'exit-sulk', 'sulk exit');
+  await until(async () => !(await visible(app)), 'sulks off', 5000);
+  await app.evaluate(() => __wt.sched.undo());
+  assert.equal(await get(app, 'count'), 7, 'undo');
+  await app.evaluate(() => { __wt.sched.pause(60); __wt.store.set('dueAt', 0); __wt.sched.tick(); });
+  assert.equal(await visible(app), false, 'paused: no reminder');
+  const menu = await app.evaluate(() => __wt.tray && true);
+  assert.ok(menu);
+  await app.evaluate(() => { __wt.sched.resume(); __wt.store.set('dueAt', 0); __wt.sched.tick(); });
+  await until(() => visible(app), 'resumed: reminder');
+  await app.close();
+
+  step('love: 11:11 heart fires once, click-through, no focus, hides itself');
+  app = await launch({ WT_USER_DATA: path.join(tmp, 'profile-love'), WT_DESTROY_MS: '60000' });
+  await app.evaluate(() => {
+    __wt.store.set('settings', { activeStart: '00:00', activeEnd: '00:00', love: true });
+    __wt.store.set('dueAt', Date.now() + 1e10); // keep water out of the way
+    const d = new Date(); d.setHours(11, 11, 20, 0);
+    __wt.clock.offset = d.getTime() - Date.now();
+    __wt.sched.loves = 0;
+    const o = __wt.sched.onLove;
+    __wt.sched.onLove = () => { __wt.sched.loves++; o(); };
+    __wt.sched.tick();
+  });
+  await until(async () => (await visible(app)) && (await rstate(app)) === 'love', 'heart showing');
+  assert.equal(await app.evaluate(() => __wt.overlay.isFocused()), false);
+  assert.equal(await app.evaluate(() => __wt.sched.state), 'loving');
+  await until(async () => !(await visible(app)), 'heart hides itself', 9000);
+  assert.equal(await app.evaluate(() => __wt.sched.state), 'waiting');
+  await app.evaluate(() => { for (let i = 0; i < 5; i++) __wt.sched.tick(); });
+  assert.equal(await app.evaluate(() => __wt.sched.loves), 1, 'once');
+  for (const v of [0, 1, 2]) {
+    await app.evaluate((_, v) => { __wt.overlay.webContents.send('overlay:love', { variant: v }); __wt.overlay.showInactive(); }, v);
+    await sleep(1500);
+    fs.writeFileSync(path.join(ROOT, 'test', `last-love-${v}.png`), await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64'))), 'base64');
+    await until(async () => (await rstate(app)) === 'love-out', 'fades', 8000);
+    await sleep(800);
+  }
   await app.close();
 
   console.log(`\nALL E2E CHECKS PASSED  (artifacts: ${tmp})`);

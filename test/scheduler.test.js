@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Scheduler, sanitize, inActiveHours, MIN } = require('../src/scheduler');
+const { Scheduler, sanitize, inActiveHours, LOVE, MIN } = require('../src/scheduler');
 
 const H = 60 * MIN;
 const at = (y, mo, d, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
@@ -10,9 +10,12 @@ function make(t0 = at(2026, 3, 10, 12), opts = {}) {
   const data = new Map();
   const store = { get: (k, d) => (data.has(k) ? data.get(k) : d), set: (k, v) => data.set(k, v) };
   const clock = { t: t0 };
-  const log = { shows: 0, exits: [] };
+  const log = { shows: 0, exits: [], loves: 0 };
+  if (!opts.love) data.set('settings', { love: false }); // keep water tests deterministic
   const s = new Scheduler({
     store,
+    random: () => opts.random ?? 0.5,
+    onLove: () => log.loves++,
     now: () => clock.t,
     idleSeconds: () => opts.idle ?? 0,
     onShow: () => log.shows++,
@@ -44,7 +47,7 @@ test('drink: count++, resets to interval, exits "drank"', () => {
   s.drink();
   assert.equal(store.get('count'), 1);
   assert.equal(store.get('dueAt'), clock.t + 30 * MIN);
-  assert.deepEqual(log.exits, ['drank']);
+  assert.deepEqual(log.exits, ['happy']);
   s.drink(); // double click: ignored
   assert.equal(store.get('count'), 1);
 });
@@ -181,7 +184,7 @@ test('remind() shows now, then snooze works', () => {
   s.remind();
   assert.equal(log.shows, 1);
   s.snooze();
-  assert.deepEqual(log.exits, ['snooze']);
+  assert.deepEqual(log.exits, ['sulk']);
 });
 
 test('sanitize clamps junk from the renderer', () => {
@@ -193,4 +196,112 @@ test('sanitize clamps junk from the renderer', () => {
   assert.equal(r.activeEnd, '07:30');
   assert.equal(r.autostart, false);
   assert.equal(r.idleMin, 4);
+});
+
+const loveAt = (h, m) => at(2026, 3, 10, h, m);
+
+test('love: plans 11:11 + one random in 09-17, both fire once, at the right minute', () => {
+  const { s, clock, log, store } = make(loveAt(9, 0), { love: true, random: 0.9 }); // random -> ~16:12
+  s.start(); store.set('dueAt', Infinity); 
+  clock.t = loveAt(11, 10); s.tick();
+  assert.equal(log.loves, 0);
+  assert.equal(store.get('settings'), undefined);
+  clock.t = loveAt(11, 11); s.tick();
+  assert.equal(log.loves, 1);
+  s.endLove();
+  clock.t = loveAt(11, 12); s.tick(); s.tick();
+  assert.equal(log.loves, 1, 'not twice');
+  const second = store.get('love').find((e) => e.at !== LOVE.fixed).at;
+  assert.ok(second >= LOVE.start && second < LOVE.end && Math.abs(second - LOVE.fixed) >= LOVE.gap);
+  clock.t = loveAt(Math.floor(second / 60), second % 60); s.tick();
+  assert.equal(log.loves, 2);
+});
+
+test('love: never outside 09-17, even if app starts at 20:00', () => {
+  const { s, clock, log, store } = make(loveAt(20, 0), { love: true });
+  s.start(); store.set('dueAt', Infinity); 
+  for (let h = 20; h < 24; h++) { clock.t = loveAt(h, 30); s.tick(); }
+  assert.equal(log.loves, 0);
+});
+
+test('love: skipped silently when late (asleep through it); water not blocked', () => {
+  const { s, clock, log, store } = make(loveAt(9, 0), { love: true });
+  s.start(); store.set('dueAt', Infinity); 
+  clock.t = loveAt(11, 40); s.tick(); // 29 min past 11:11 > grace
+  assert.equal(log.loves, 0);
+  assert.equal(s.state, 'waiting');
+});
+
+test('love: deferred while idle/locked within grace, fires when back', () => {
+  const o = { love: true, idle: 600 };
+  const { s, clock, log, store } = make(loveAt(9, 0), o);
+  s.start(); store.set('dueAt', Infinity); 
+  clock.t = loveAt(11, 15); s.tick();
+  assert.equal(log.loves, 0);
+  o.idle = 0; s.tick();
+  assert.equal(log.loves, 1);
+});
+
+test('love: water reminder wins and blocks it; love blocks water until endLove', () => {
+  const a = make(loveAt(11, 0), { love: true });
+  a.s.start();
+  a.store.set('dueAt', loveAt(11, 5));
+  a.clock.t = loveAt(11, 11); a.s.tick();
+  assert.equal(a.log.shows, 1);
+  assert.equal(a.log.loves, 0);
+
+  const b = make(loveAt(11, 0), { love: true });
+  b.s.start(); b.store.set('dueAt', Infinity);
+  b.clock.t = loveAt(11, 11); b.s.tick();
+  assert.equal(b.s.state, 'loving');
+  b.store.set('dueAt', 0); b.s.tick(); b.s.remind();
+  assert.equal(b.log.shows, 0, 'water waits while heart is up');
+  b.s.endLove(); b.s.tick();
+  assert.equal(b.log.shows, 1);
+});
+
+test('love: setting off disables it; plan survives restart (no re-roll)', () => {
+  const off = make(loveAt(9, 0), { love: true });
+  off.store.set('settings', { love: false });
+  off.s.start(); off.store.set('dueAt', Infinity);
+  off.clock.t = loveAt(11, 11); off.s.tick();
+  assert.equal(off.log.loves, 0);
+
+  const { s, clock, store, log } = make(loveAt(9, 0), { love: true, random: 0.9 });
+  s.start(); store.set('dueAt', Infinity); s.tick();
+  const plan = JSON.stringify(store.get('love'));
+  const s2 = new Scheduler({ store, now: () => clock.t, random: () => 0.1, onShow() {}, onExit() {}, onLove: () => log.loves++ });
+  s2.start(); s2.tick();
+  assert.equal(JSON.stringify(store.get('love')), plan);
+});
+
+test('drink that hits the goal exits "goal"', () => {
+  const { s, store, log } = make();
+  s.start();
+  store.set('count', 7);
+  s.remind(); s.drink();
+  assert.deepEqual(log.exits, ['goal']);
+  s.remind(); s.drink();
+  assert.deepEqual(log.exits, ['goal', 'happy'], 'only on the exact hit');
+});
+
+test('undo never goes below 0', () => {
+  const { s, store } = make();
+  s.start();
+  store.set('count', 1);
+  s.undo(); s.undo();
+  assert.equal(store.get('count'), 0);
+});
+
+test('pause 60m: nothing fires (water or love) until resumed/expired', () => {
+  const { s, clock, log, store } = make(at(2026, 3, 10, 11, 0), { love: true });
+  s.start();
+  s.pause(60);
+  assert.ok(s.status().pausedUntil > 0);
+  clock.t = at(2026, 3, 10, 11, 30); s.tick();
+  assert.equal(log.shows + log.loves, 0);
+  assert.ok(store.get('dueAt') >= at(2026, 3, 10, 12, 0));
+  s.resume();
+  clock.t = at(2026, 3, 10, 12, 0); s.tick();
+  assert.equal(log.shows, 1);
 });

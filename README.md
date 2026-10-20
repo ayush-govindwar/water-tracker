@@ -1,6 +1,6 @@
 # Water Tracker
 
-Tray app. A character peeks in from the bottom-right corner (above the taskbar) every 30 min; **I drank** resets to 30 min and counts, **Snooze** re-fires in 5 min.
+Tray app. She walks in at the bottom-right corner (above the taskbar) every 30 min, drinks, and asks you to drink too. **I drank it** counts and resets to 30 min, **Snooze** re-fires in 5 min.
 
 ```
 npm install
@@ -11,17 +11,27 @@ npm run dist         # on Windows: NSIS installer + portable exe -> dist/ (x64)
 npm run dist:cross   # on mac/linux: same, but skips exe icon/metadata (needs wine otherwise)
 ```
 
-## Art (phase 4)
-Drop four horizontal strips in `assets/sprites/` — cells fixed 96×120, transparent, ~4px padding:
+## Character
+She's a layered vector SVG rig (`src/overlay/index.html`, palette + 300×340 widget from the design reference), animated part by part with CSS keyframes in `src/overlay/overlay.css`:
 
-| file | frames | plays |
-|---|---|---|
-| `peek-in.png` | 8 | once, on appear |
-| `drink-loop.png` | 12 | loops while waiting |
-| `exit-drank.png` | 10 | once, after "I drank" |
-| `exit-snooze.png` | 10 | once, after "Snooze" |
+| state | what she does |
+|---|---|
+| `peek` | walks in from the screen edge, waves, says hi (time/streak aware) |
+| `loop` | lifts the glass, sips, "ahh", then waves at you: "Your turn!" |
+| `exit-happy` | "I drank it": the cheer pose, hops, walks off |
+| `exit-goal` | same + confetti when you hit the daily goal |
+| `exit-sulk` | "Snooze": pouts, sad brows, a tear, shuffles off |
+| `love` | 11:11 + one random time 9–5: pops up, winks, blows a kiss, heart flies |
 
-Frame count = image width / 96 (so any count works), 12 fps (`FPS` in `src/overlay/overlay.js`). All four must exist, otherwise the blue placeholder box is used. Shown at 1:1 CSS px; window is 320×150 (`OVERLAY` in `src/main.js`, bubble/char layout in `overlay.css`).
+Tap her while she waits: she giggles. Only the card and her body take clicks; the rest of the window clicks through.
+
+## Perks
+- Progress cups on the card, fills as you drink.
+- Tray: Remind me now · Undo last drink · Pause for 1 hour / Resume · Settings · Quit.
+- Surprise heart twice a day (toggle in Settings).
+
+## Performance
+Idle = main process + tray only: the overlay window is created when she appears and destroyed 30 s after she leaves. Store reads are served from memory (no disk I/O per tick). Animations are transform/opacity only (GPU compositor).
 
 ## Behaviour
 - One persisted `dueAt`, polled every 10 s plus on resume/unlock → a 2 h sleep gives one reminder.

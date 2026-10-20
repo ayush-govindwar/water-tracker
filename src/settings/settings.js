@@ -15,8 +15,8 @@ function render({ settings, status }) {
 
 form.addEventListener('change', async () => {
   if (!form.checkValidity()) return;
-  const d = Object.fromEntries(new FormData(form));
-  const next = { ...d, autostart: form.elements.autostart.checked };
+  const next = {};
+  for (const el of form.elements) if (el.name) next[el.name] = el.type === 'checkbox' ? el.checked : el.value;
   render(await window.api.saveSettings(next)); // main clamps; show the canonical values back
   saved.textContent = 'Saved';
   clearTimeout(timer);
