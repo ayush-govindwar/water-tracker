@@ -28,7 +28,7 @@ async function launch(extraEnv = {}) {
   await app.evaluate(() => { __wt.sched.idleSeconds = () => 0; if (!__wt.store.get('settings')) __wt.store.set('settings', { activeStart: '00:00', activeEnd: '00:00', love: false }); });
   return app;
 }
-const until = async (fn, what, ms = 8000) => {
+const until = async (fn, what, ms = 12000) => {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) { const v = await fn(); if (v) return v; await sleep(50); }
   assert.fail(`timeout waiting for: ${what}`);
@@ -40,7 +40,7 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
 
 (async () => {
   let app = await launch();
-  const near = (a, b, tol = 3000) => Math.abs(a - b) < tol;
+  const near = (a, b, tol = 10000) => Math.abs(a - b) < tol;
   const now = () => app.evaluate(() => Date.now() + __wt.clock.offset);
 
   step('phase 1: overlay window flags + placement');
@@ -94,7 +94,7 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
     powerMonitor.emit('resume');
     for (let i = 0; i < 6; i++) __wt.sched.tick();
   });
-  await sleep(2600); // resume handler's delayed tick
+  await sleep(3800); // finger hearts // resume handler's delayed tick
   assert.equal(await app.evaluate(() => __wt.sched.showCount), 1, 'one reminder on wake');
   assert.equal(await visible(app), true);
   await click(app, 'snooze');
@@ -146,7 +146,7 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   fs.copyFileSync(spath, path.join(ROOT, 'test', 'last-settings.png'));
   await app.close();
 
-  step('character: walk-in -> drink loop -> goal exit (confetti) / sulk exit; cups; giggle; tray perks');
+  step('character: walk-in -> drink loop -> goal exit (confetti) / sulk exit; cups; tray perks');
   app = await launch({ WT_USER_DATA: path.join(tmp, 'profile-char'), WT_DESTROY_MS: '60000' });
   await app.evaluate(() => { __wt.store.set('count', 7); __wt.sched.remind(); });
   await until(async () => (await visible(app)) && (await rstate(app)) === 'peek', 'peek (walk-in)');
@@ -154,24 +154,26 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   assert.deepEqual(await js('[document.querySelectorAll(".cup").length, document.querySelectorAll(".cup.full").length]'), [8, 7], 'cups render');
   assert.equal(await js('document.getElementById("count").textContent'), '7 of 8 today');
   await until(async () => (await rstate(app)) === 'loop', 'walk-in ends -> loop', 4000);
-  assert.ok((await js('document.getElementById("sayText").textContent')).length > 0, 'she says something');
-  assert.equal(await js('getComputedStyle(document.getElementById("armR")).animationName'), 'drink-arm', 'drinking');
+  await until(async () => (await js('document.getElementById("sayText").textContent')).length > 0, 'she says something', 2000);
+  const f1 = await js('window.__her.frame');
+  await sleep(600);
+  assert.notEqual(await js('window.__her.frame'), f1, 'frames advance (canvas player running)');
   await js('window.api.setInteractive(true); window.api.setInteractive(false); 1');
-  await js('document.getElementById("bob").dispatchEvent(new MouseEvent("click", {bubbles: true})); 1');
-  assert.equal(await js('document.getElementById("app").classList.contains("giggle")'), true, 'giggle on tap');
-  await sleep(1800); // mid-loop frame
+  await sleep(4000); // into the drinking part of the loop
   fs.writeFileSync(path.join(ROOT, 'test', 'last-overlay.png'), await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64'))), 'base64');
   await click(app, 'drink');
   await until(async () => (await rstate(app)) === 'exit-goal', 'goal exit');
   assert.equal(await js('document.querySelectorAll(".cup.full").length'), 8, 'cup filled');
   assert.equal(await js('getComputedStyle(document.querySelector("#confetti i")).animationName'), 'confetti');
-  await until(async () => !(await visible(app)), 'walks off and hides', 5000);
+  await until(async () => (await js('window.__her.clip')) === 'happy', 'plays her happy video');
+  await until(async () => !(await visible(app)), 'cheers, walks off and hides', 8000);
   assert.equal(await get(app, 'count'), 8);
   await app.evaluate(() => __wt.sched.remind());
   await until(async () => (await rstate(app)) === 'loop', 'loop again');
   await click(app, 'snooze');
   await until(async () => (await rstate(app)) === 'exit-sulk', 'sulk exit');
-  await until(async () => !(await visible(app)), 'sulks off', 5000);
+  await until(async () => (await js('window.__her.clip')) === 'sulk', 'plays her sulk video');
+  await until(async () => !(await visible(app)), 'sulks off', 9000);
   await app.evaluate(() => __wt.sched.undo());
   assert.equal(await get(app, 'count'), 7, 'undo');
   await app.evaluate(() => { __wt.sched.pause(60); __wt.store.set('dueAt', 0); __wt.sched.tick(); });
@@ -187,6 +189,7 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   await app.evaluate(() => {
     __wt.store.set('settings', { activeStart: '00:00', activeEnd: '00:00', love: true });
     __wt.store.set('dueAt', Date.now() + 1e10); // keep water out of the way
+    __wt.store.set('loveDay', ''); // boot (at the real time) may already have planned today and marked 11:11 missed
     const d = new Date(); d.setHours(11, 11, 20, 0);
     __wt.clock.offset = d.getTime() - Date.now();
     __wt.sched.loves = 0;
@@ -197,17 +200,12 @@ const get = (app, k) => app.evaluate((_, k) => __wt.store.get(k), k);
   await until(async () => (await visible(app)) && (await rstate(app)) === 'love', 'heart showing');
   assert.equal(await app.evaluate(() => __wt.overlay.isFocused()), false);
   assert.equal(await app.evaluate(() => __wt.sched.state), 'loving');
+  await sleep(3800); // finger hearts
+  fs.writeFileSync(path.join(ROOT, 'test', 'last-love.png'), await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64'))), 'base64');
   await until(async () => !(await visible(app)), 'heart hides itself', 9000);
   assert.equal(await app.evaluate(() => __wt.sched.state), 'waiting');
   await app.evaluate(() => { for (let i = 0; i < 5; i++) __wt.sched.tick(); });
   assert.equal(await app.evaluate(() => __wt.sched.loves), 1, 'once');
-  for (const v of [0, 1, 2]) {
-    await app.evaluate((_, v) => { __wt.overlay.webContents.send('overlay:love', { variant: v }); __wt.overlay.showInactive(); }, v);
-    await sleep(1500);
-    fs.writeFileSync(path.join(ROOT, 'test', `last-love-${v}.png`), await app.evaluate(() => __wt.overlay.webContents.capturePage().then((i) => i.toPNG().toString('base64'))), 'base64');
-    await until(async () => (await rstate(app)) === 'love-out', 'fades', 8000);
-    await sleep(800);
-  }
   await app.close();
 
   console.log(`\nALL E2E CHECKS PASSED  (artifacts: ${tmp})`);

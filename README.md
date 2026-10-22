@@ -12,18 +12,22 @@ npm run dist:cross   # on mac/linux: same, but skips exe icon/metadata (needs wi
 ```
 
 ## Character
-She's a layered vector SVG rig (`src/overlay/index.html`, palette + 300×340 widget from the design reference), animated part by part with CSS keyframes in `src/overlay/overlay.css`:
+She comes from real videos in `art/` (black background): `her.mp4` (walk in, stand, drink), `happyafterdrinkingwater.mp4` (cheer), `sulk.mp4` (sad, walks off), `heart.mp4` (walks in, finger hearts). `scripts/video-to-sprites.js` decodes them with Chromium, removes the watermark, keys out the black (flood-fill from the borders, so her black hair/dress survive; hearts/sparkles keep a soft glow), scales every clip to the same height and floor line, and packs each into `assets/her/<clip>.webp` + one `atlas.json`:
 
-| state | what she does |
+```
+npx electron scripts/video-to-sprites.js   # re-run after replacing/adding a video
+```
+
+Per-clip segments, floor and standing height live in `CLIPS` at the top of the script (edit them if a new video differs). The overlay plays frames on a canvas (`src/overlay/overlay.js`), keeps her in place between clips and crossfades the seams:
+
+| state | built from |
 |---|---|
-| `peek` | walks in from the screen edge, waves, says hi (time/streak aware) |
-| `loop` | lifts the glass, sips, "ahh", then waves at you: "Your turn!" |
-| `exit-happy` | "I drank it": the cheer pose, hops, walks off |
-| `exit-goal` | same + confetti when you hit the daily goal |
-| `exit-sulk` | "Snooze": pouts, sad brows, a tear, shuffles off |
-| `love` | 11:11 + one random time 9–5: pops up, winks, blows a kiss, heart flies |
-
-Tap her while she waits: she giggles. Only the card and her body take clicks; the rest of the window clicks through.
+| walk-in | `her.mp4` walk: she enters from the screen edge |
+| loop | idle → drink → drink reversed (lowers the tumbler) → idle reversed, with a greeting and "Your turn!" |
+| I drank it | `happyafterdrinkingwater.mp4` cheer + sparkles + "Yay!", then mirrored walk frames: walks off right |
+| goal reached | same + confetti |
+| snooze | `sulk.mp4`: sad face, turns, walks off the screen edge |
+| love (11:11 + random 9–5) | `heart.mp4`: walks in, finger hearts + "love you", fades out |
 
 ## Perks
 - Progress cups on the card, fills as you drink.

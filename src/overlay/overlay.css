@@ -1,245 +1,62 @@
-/* Palette from the character reference (16 colours). */
 :root {
-  --skin: #C6865A; --skin-shade: #A66B43; --line: #2B1C16; --hair: #241814; --hair-sheen: #4B362A;
-  --saree: #F7F2E6; --saree-fold: #DCD1BC; --gold: #E0AE44; --gold-dark: #B07F26; --blouse: #2A211D;
-  --blush: #E89A86; --mouth: #6E2A2A; --tongue: #C4696A; --glass: #D9EEF5; --glass-edge: #7FA8B5; --water: #6DBFDC;
-  --teal: #2E6E8E; --cream: #F7F2E6; --cream-2: #E9E0CF;
+  --ink: #1d1a1f; --paper: #fbf7f2; --paper-2: #efe7dc; --teal: #2e6e8e; --water: #6dbfdc; --pink: #ff4d7d; --gold: #f2c14e;
   --spring: cubic-bezier(.34, 1.56, .64, 1);
-  --out: cubic-bezier(.16, 1, .3, 1);
 }
-/* Everything that moves animates transform/opacity only: compositor work, no layout or repaint per frame. */
+/* Only transform/opacity animate (compositor), and only while she's on screen. */
 html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; font: 13px/1.25 system-ui, "Segoe UI", sans-serif; }
 #app { position: fixed; inset: 0; }
-.defs { position: absolute; }
 
-/* ============ character ============ */
-#her { position: absolute; right: 4px; bottom: 98px; width: 208px; height: 240px; overflow: visible; }
-#her * { transform-box: view-box; }
-.hair { fill: var(--hair); }
-.line { fill: none; stroke: var(--line); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; }
-.fold { fill: none; stroke: var(--saree-fold); stroke-width: 3; stroke-linecap: round; }
-.sash { stroke: var(--gold); stroke-width: 7; stroke-linecap: round; }
-.limb { fill: none; stroke: var(--skin); stroke-width: 15; stroke-linecap: round; }
-.fist { fill: var(--skin); }
-.knuckle { stroke: var(--skin-shade); stroke-width: 2.4; stroke-linecap: round; }
-.bangle { stroke: var(--gold); stroke-width: 3.4; stroke-linecap: round; }
-.blush { fill: var(--blush); opacity: .75; }
-.eyes circle { fill: var(--line); }
-.eyes .glint { fill: #fff; }
-.shadow { fill: rgba(0, 0, 0, .22); }
+#her { position: absolute; left: 0; bottom: 4px; width: 100%; height: 350px; }
 
-/* joints (user-space pivots) */
-#rig   { transform-origin: 100px 270px; }
-#bob   { transform-origin: 100px 268px; }
-#head  { transform-origin: 100px 128px; }
-#torso { transform-origin: 100px 268px; }
-#armL  { transform-origin: 66px 154px;  transform: rotate(10deg); }
-#foreL { transform-origin: 66px 186px;  transform: rotate(-12deg); }
-#armR  { transform-origin: 134px 154px; transform: rotate(-14deg); }
-#foreR { transform-origin: 134px 186px; transform: rotate(-38deg); }
-#glass { transform-origin: 137px 219px; transform: rotate(52deg); }
-#water { transform: translateY(0); }
-
-/* face: exactly one eyes + one mouth visible; states/keyframes switch them */
-.eyes, .mouth, .brows-sad, .tear { opacity: 0; }
-.eyes.open, .mouth.smile { opacity: 1; }
-
-#app[data-state=hidden] #her, #app[data-state=hidden] #card { visibility: hidden; }
-
-/* ---------- peek-in: walks in from the screen edge, waves hello ---------- */
-#app[data-state=peek] #rig   { animation: walk-in 2s both; }
-#app[data-state=peek] #bob   { animation: walk-bob .34s ease-in-out 4 alternate; }
-#app[data-state=peek] #armL  { animation: wave-arm 2s both; }
-#app[data-state=peek] #foreL { animation: wave-fore 2s both; }
-#app[data-state=peek] .eyes.open  { animation: blink-once 2s both; }
-#app[data-state=peek] .eyes.shut  { animation: blink-once-inv 2s both; }
-@keyframes walk-in {
-  0% { transform: translateX(240px) rotate(4deg); animation-timing-function: cubic-bezier(.25, .6, .4, 1); }
-  60% { transform: translateX(-4px) rotate(-1.5deg); }
-  70%, 100% { transform: none; }
-}
-@keyframes walk-bob { from { transform: translateY(0) rotate(-1.5deg); } to { transform: translateY(-7px) rotate(1.5deg); } }
-@keyframes wave-arm { 0% { transform: rotate(16deg); } 14% { transform: rotate(4deg); } 28% { transform: rotate(16deg); } 42% { transform: rotate(4deg); } 58% { transform: rotate(10deg); } 70%, 92% { transform: rotate(146deg); } 100% { transform: rotate(10deg); } }
-@keyframes wave-fore {
-  0%, 58% { transform: rotate(-12deg); }
-  70% { transform: rotate(30deg); } 76% { transform: rotate(-4deg); } 82% { transform: rotate(32deg); } 88% { transform: rotate(-2deg); } 92% { transform: rotate(20deg); }
-  100% { transform: rotate(-12deg); }
-}
-@keyframes blink-once { 0%, 38%, 44%, 100% { opacity: 1; } 39%, 43% { opacity: 0; } }
-@keyframes blink-once-inv { 0%, 38%, 44%, 100% { opacity: 0; } 39%, 43% { opacity: 1; } }
-
-/* ---------- drink-loop: lifts the glass, sips, "ahh", then asks you to drink too ---------- */
-#app[data-state=loop] #bob   { animation: idle-breathe 4.4s ease-in-out infinite; }
-#app[data-state=loop] #head  { animation: drink-head 4.4s ease-in-out infinite; }
-#app[data-state=loop] #armR  { animation: drink-arm 4.4s ease-in-out infinite; }
-#app[data-state=loop] #foreR { animation: drink-fore 4.4s ease-in-out infinite; }
-#app[data-state=loop] #glass { animation: drink-glass 4.4s ease-in-out infinite; }
-#app[data-state=loop] #water { animation: drink-water 4.4s ease-in-out infinite; }
-#app[data-state=loop] #armL  { animation: invite-arm 4.4s ease-in-out infinite; }
-#app[data-state=loop] #foreL { animation: invite-fore 4.4s ease-in-out infinite; }
-#app[data-state=loop] .eyes.open  { animation: f-open 4.4s infinite; }
-#app[data-state=loop] .eyes.shut  { animation: f-shut 4.4s infinite; }
-#app[data-state=loop] .eyes.happy { animation: f-happy 4.4s infinite; }
-#app[data-state=loop] .mouth.smile { animation: f-smile 4.4s infinite; }
-#app[data-state=loop] .mouth.sip   { animation: f-shut 4.4s infinite; }
-#app[data-state=loop] .mouth.laugh { animation: f-laugh 4.4s infinite; }
-#app[data-state=loop] #say { animation: say-invite 4.4s infinite; }
-@keyframes idle-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@keyframes drink-head { 0%, 10% { transform: none; } 18%, 44% { transform: rotate(-7deg) translate(-2px, -2px); } 30% { transform: rotate(-9deg) translate(-2px, -3px); } 54%, 100% { transform: none; } 70% { transform: rotate(3deg); } 86% { transform: rotate(-2deg); } }
-@keyframes drink-arm  { 0%, 4% { transform: rotate(-14deg); } 18%, 44% { transform: rotate(-135deg); } 56%, 100% { transform: rotate(-14deg); } }
-@keyframes drink-fore { 0%, 4% { transform: rotate(-38deg); } 18%, 44% { transform: rotate(-108deg); } 56%, 100% { transform: rotate(-38deg); } }
-@keyframes drink-glass { 0%, 4% { transform: rotate(52deg); } 18% { transform: rotate(150deg); } 30%, 40% { transform: rotate(130deg); } 44% { transform: rotate(146deg); } 56%, 100% { transform: rotate(52deg); } }
-@keyframes drink-water { 0%, 20% { transform: translateY(0); } 42% { transform: translateY(9px); } 90% { transform: translateY(9px); } 100% { transform: translateY(0); } }
-@keyframes invite-arm  { 0%, 56% { transform: rotate(10deg); } 66%, 92% { transform: rotate(58deg); } 100% { transform: rotate(10deg); } }
-@keyframes invite-fore { 0%, 56% { transform: rotate(-12deg); } 66% { transform: rotate(70deg); } 72% { transform: rotate(56deg); } 78% { transform: rotate(72deg); } 84% { transform: rotate(56deg); } 92% { transform: rotate(68deg); } 100% { transform: rotate(-12deg); } }
-@keyframes f-open  { 0%, 13.9%, 56%, 100% { opacity: 1; } 14%, 55.9% { opacity: 0; } }
-@keyframes f-shut  { 0%, 13.9% { opacity: 0; } 14%, 45.9% { opacity: 1; } 46%, 100% { opacity: 0; } }
-@keyframes f-happy { 0%, 45.9% { opacity: 0; } 46%, 55.9% { opacity: 1; } 56%, 100% { opacity: 0; } }
-@keyframes f-smile { 0%, 13.9% { opacity: 1; } 14%, 100% { opacity: 0; } }
-@keyframes f-laugh { 0%, 45.9% { opacity: 0; } 46%, 97.9% { opacity: 1; } 98%, 100% { opacity: 0; } }
-@keyframes say-invite { 0%, 58% { opacity: 0; transform: translateY(6px) scale(.8); } 64%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px) scale(.95); } }
-
-/* ---------- exit-happy ("I drank it"): cheers like the reference pose, hops, walks off ---------- */
-#app[data-state^=exit-happy] #rig, #app[data-state=exit-goal] #rig { animation: walk-out 1.9s both; }
-#app[data-state=exit-goal] #rig { animation-duration: 2.6s; }
-#app[data-state^=exit-happy] #bob, #app[data-state=exit-goal] #bob { animation: hop 1.9s both; }
-#app[data-state=exit-goal] #bob { animation-name: hop-goal; animation-duration: 2.6s; }
-#app[data-state^=exit-happy] #armL, #app[data-state=exit-goal] #armL { animation: cheer-arm 1.9s both; }
-#app[data-state=exit-goal] #armL { animation-duration: 2.6s; }
-#app[data-state^=exit-happy] #foreL, #app[data-state=exit-goal] #foreL { animation: cheer-fore 1.9s both; }
-#app[data-state=exit-goal] #foreL { animation-duration: 2.6s; }
-#app[data-state^=exit-happy] .eyes.open, #app[data-state=exit-goal] .eyes.open, #app[data-state^=exit-happy] .mouth.smile, #app[data-state=exit-goal] .mouth.smile { opacity: 0; }
-#app[data-state^=exit-happy] .eyes.happy, #app[data-state=exit-goal] .eyes.happy, #app[data-state^=exit-happy] .mouth.laugh, #app[data-state=exit-goal] .mouth.laugh { opacity: 1; }
-@keyframes walk-out { 0%, 38% { transform: none; animation-timing-function: cubic-bezier(.5, 0, .75, .4); } 100% { transform: translateX(250px) rotate(3deg); } }
-@keyframes hop {
-  0% { transform: none; } 8% { transform: translateY(3px) scale(1.03, .97); }
-  20% { transform: translateY(-16px); } 30% { transform: translateY(0) scale(1.02, .98); } 36% { transform: none; }
-  45% { transform: translateY(-6px) rotate(-1.5deg); } 54% { transform: translateY(0) rotate(1.5deg); } 63% { transform: translateY(-6px) rotate(-1.5deg); }
-  72% { transform: translateY(0) rotate(1.5deg); } 81% { transform: translateY(-6px) rotate(-1.5deg); } 90% { transform: translateY(0); } 100% { transform: translateY(-6px); }
-}
-@keyframes hop-goal {
-  0% { transform: none; } 6% { transform: translateY(3px) scale(1.03, .97); }
-  15% { transform: translateY(-18px); } 23% { transform: translateY(0) scale(1.02, .98); } 31% { transform: translateY(-18px); } 39% { transform: translateY(0); }
-  48% { transform: translateY(-6px) rotate(-1.5deg); } 58% { transform: translateY(0) rotate(1.5deg); } 68% { transform: translateY(-6px) rotate(-1.5deg); }
-  78% { transform: translateY(0) rotate(1.5deg); } 88% { transform: translateY(-6px); } 100% { transform: translateY(0); }
-}
-@keyframes cheer-arm { 0% { transform: rotate(10deg); } 14%, 40% { transform: rotate(142deg); } 22% { transform: rotate(150deg); } 30% { transform: rotate(138deg); } 55%, 100% { transform: rotate(14deg); } }
-@keyframes cheer-fore { 0% { transform: rotate(-12deg); } 14% { transform: rotate(40deg); } 20% { transform: rotate(24deg); } 26% { transform: rotate(44deg); } 32% { transform: rotate(26deg); } 40% { transform: rotate(40deg); } 55%, 100% { transform: rotate(-14deg); } }
-
-/* ---------- exit-sulk ("Snooze"): pouts, droops, shuffles off ---------- */
-#app[data-state=exit-sulk] #rig  { animation: walk-out 2s both; }
-#app[data-state=exit-sulk] #bob  { animation: sulk-bob 2s both; }
-#app[data-state=exit-sulk] #head { animation: sulk-head 2s both; }
-#app[data-state=exit-sulk] #armL { animation: slump-l 2s both; }
-#app[data-state=exit-sulk] #armR { animation: slump-r 2s both; }
-#app[data-state=exit-sulk] #foreR { animation: slump-fr 2s both; }
-#app[data-state=exit-sulk] #glass { animation: slump-g 2s both; }
-#app[data-state=exit-sulk] .eyes.open { animation: sulk-eyes 2s both; }
-#app[data-state=exit-sulk] .eyes.shut { animation: sulk-eyes-inv 2s both; }
-#app[data-state=exit-sulk] .mouth.smile { opacity: 0; }
-#app[data-state=exit-sulk] .mouth.pout, #app[data-state=exit-sulk] .brows-sad { opacity: 1; }
-#app[data-state=exit-sulk] .brows { opacity: 0; }
-#app[data-state=exit-sulk] .tear { animation: tear 2s both; }
-@keyframes sulk-bob { 0% { transform: none; } 12%, 38% { transform: translateY(4px) scale(1.01, .975); } 50% { transform: translateY(2px); } 62% { transform: translateY(5px); } 74% { transform: translateY(2px); } 86% { transform: translateY(5px); } 100% { transform: translateY(2px); } }
-@keyframes sulk-head { 0% { transform: none; } 14%, 100% { transform: rotate(8deg) translate(2px, 3px); } }
-@keyframes slump-l { 0% { transform: rotate(10deg); } 14%, 100% { transform: rotate(2deg); } }
-@keyframes slump-r { 0% { transform: rotate(-14deg); } 14%, 100% { transform: rotate(-4deg); } }
-@keyframes slump-fr { 0% { transform: rotate(-38deg); } 14%, 100% { transform: rotate(-8deg); } }
-@keyframes slump-g { 0% { transform: rotate(52deg); } 14%, 100% { transform: rotate(12deg); } }
-@keyframes sulk-eyes { 0%, 20%, 30%, 100% { opacity: 1; } 21%, 29% { opacity: 0; } }
-@keyframes sulk-eyes-inv { 0%, 20%, 30%, 100% { opacity: 0; } 21%, 29% { opacity: 1; } }
-@keyframes tear { 0%, 18% { opacity: 0; transform: none; } 24% { opacity: 1; } 44% { opacity: 1; transform: translateY(8px); } 52%, 100% { opacity: 0; transform: translateY(12px); } }
-
-/* ============ speech bubble ============ */
+/* ---------- speech bubble ---------- */
 #say {
-  position: absolute; right: 172px; top: 40px; max-width: 116px; padding: 8px 11px; border-radius: 14px 14px 4px 14px;
-  background: var(--cream); color: var(--line); border: 2.5px solid var(--line); font-weight: 750; font-size: 13px; text-align: center;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, .18); opacity: 0; transform-origin: 100% 100%; pointer-events: none;
+  position: absolute; left: 10px; top: 52px; max-width: 150px; padding: 8px 12px; border-radius: 14px 14px 4px 14px;
+  background: var(--paper); color: var(--ink); border: 2.5px solid var(--ink); box-shadow: 0 4px 0 rgba(0, 0, 0, .2);
+  font-weight: 750; font-size: 13.5px; text-align: center; pointer-events: none;
+  opacity: 0; transform: translateY(8px) scale(.85); transform-origin: 100% 100%; transition: opacity .2s, transform .2s;
 }
-#app[data-state=peek] #say { animation: say-pop 2s both; }
-#app[data-state^=exit] #say { animation: say-pop-exit 1.9s both; }
-@keyframes say-pop { 0%, 66% { opacity: 0; transform: translateY(6px) scale(.8); } 74%, 100% { opacity: 1; transform: none; } }
-@keyframes say-pop-exit { 0% { opacity: 0; transform: scale(.8); } 10%, 50% { opacity: 1; transform: none; } 70%, 100% { opacity: 0; transform: translateY(-6px); } }
+#app.talk #say { opacity: 1; transform: none; transition: opacity .25s, transform .45s var(--spring); }
 
-/* ============ card (from the design) ============ */
+/* ---------- card ---------- */
 #card {
-  position: absolute; left: 8px; right: 8px; bottom: 8px; box-sizing: border-box; padding: 10px 12px 12px;
-  background: var(--cream); border: 3px solid var(--line); border-radius: 8px; box-shadow: 0 5px 0 rgba(0, 0, 0, .22);
-  transform: translateY(130px); opacity: 0; transition: transform .35s ease-in, opacity .3s .05s;
+  position: absolute; left: 8px; bottom: 12px; width: 150px; box-sizing: border-box; padding: 10px 10px 11px;
+  background: var(--paper); border: 2.5px solid var(--ink); border-radius: 10px; box-shadow: 0 5px 0 rgba(0, 0, 0, .25);
+  opacity: 0; transform: translateY(40px) scale(.9); pointer-events: none; transition: opacity .25s, transform .3s ease-in;
 }
-#app[data-state=peek] #card, #app[data-state=loop] #card { transform: none; opacity: 1; transition: transform .55s .5s var(--spring), opacity .2s .5s; }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-#count { font-weight: 750; color: var(--line); }
-#cups { display: flex; gap: 4px; }
-.cup { width: 13px; height: 15px; box-sizing: border-box; border: 2.2px solid var(--line); border-radius: 2px 2px 3px 3px; background: transparent; }
+#app[data-state=peek] #card, #app[data-state=loop] #card { opacity: 1; transform: none; pointer-events: auto; transition: opacity .3s .6s, transform .55s .6s var(--spring); }
+#count { font-weight: 800; color: var(--ink); }
+#cups { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 9px; }
+.cup { width: 11px; height: 13px; box-sizing: border-box; border: 2px solid var(--ink); border-radius: 2px 2px 3px 3px; }
 .cup.full { background: var(--water); }
 .cup.new { animation: cup-fill .6s var(--spring) both; }
-@keyframes cup-fill { from { transform: scale(.4); background: transparent; } to { transform: none; } }
-.btns { display: flex; gap: 8px; margin-top: 10px; }
+@keyframes cup-fill { from { transform: scale(.3); } to { transform: none; } }
 button {
-  flex: 1; padding: 9px 0; border: 3px solid var(--line); border-radius: 6px; font: inherit; font-weight: 750; cursor: pointer;
-  box-shadow: 0 3px 0 var(--line); transition: transform .08s, box-shadow .08s, filter .12s;
+  display: block; width: 100%; padding: 8px 0; border: 2.5px solid var(--ink); border-radius: 8px; font: inherit; font-weight: 800; cursor: pointer;
+  box-shadow: 0 3px 0 var(--ink); transition: transform .08s, box-shadow .08s, filter .12s;
 }
+button + button { margin-top: 7px; }
 #drink { background: var(--teal); color: #fff; }
-#snooze { background: var(--cream-2); color: var(--line); }
+#snooze { background: var(--paper-2); color: var(--ink); }
 button:hover { filter: brightness(1.08); }
-button:active { transform: translateY(3px); box-shadow: 0 0 0 var(--line); }
+button:active { transform: translateY(3px); box-shadow: 0 0 0 var(--ink); }
 button:disabled { cursor: default; }
 
-/* ============ confetti (goal reached) ============ */
+/* ---------- effects ---------- */
+#fx > * { position: absolute; opacity: 0; pointer-events: none; }
+.heart { color: var(--pink); font-size: 18px; text-shadow: 0 2px 6px rgba(255, 77, 125, .45); }
+.h1 { right: 150px; top: 120px; } .h2 { right: 24px; top: 80px; } .h3 { right: 168px; top: 30px; font-size: 14px; } .h4 { right: 40px; top: 150px; font-size: 22px; } .h5 { right: 98px; top: 170px; font-size: 13px; }
+.spark { color: var(--gold); font-size: 18px; }
+.s1 { right: 140px; top: 20px; } .s2 { right: 30px; top: 30px; } .s3 { right: 150px; top: 110px; font-size: 13px; } .s4 { right: 20px; top: 120px; font-size: 14px; }
+
+#app.yay .spark { animation: twinkle .9s ease-in-out 2; }
+#app.yay .s2, #app.yay .s4 { animation-delay: .25s; }
+#app.yay .s3 { animation-delay: .45s; }
+#app.love .h1, #app.love .h2, #app.love .h3, #app.love .h4, #app.love .h5 { animation: rise 1.8s ease-out infinite; }
+#app.love .h2 { animation-delay: .35s; } #app.love .h3 { animation-delay: .7s; } #app.love .h4 { animation-delay: 1s; } #app.love .h5 { animation-delay: 1.3s; }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(0) rotate(0); } 50% { opacity: 1; transform: scale(1.1) rotate(90deg); } }
+@keyframes rise { 0% { opacity: 0; transform: translateY(16px) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px) scale(1.1) rotate(12deg); } }
+
 #confetti { position: absolute; inset: 0; pointer-events: none; }
 #confetti i { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; opacity: 0; }
-#app[data-state=exit-goal] #confetti i { animation: confetti 1.9s var(--delay) cubic-bezier(.3, .6, .6, 1) both; }
-@keyframes confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), 330px) rotate(var(--rot)); } }
-
-/* ============ love (11:11 + one random): pops up, winks, blows a kiss ============ */
-#loveFx > * { opacity: 0; }
-#app[data-state^=love] #card { display: none; }
-#app[data-state=love] #rig  { animation: love-in .7s var(--spring) both; }
-#app[data-state=love-out] #rig { animation: love-out .6s ease-in both; }
-#app[data-state=love] #bob  { animation: idle-breathe 2.2s .7s ease-in-out infinite; }
-#app[data-state=love] #head { animation: love-head 5s ease-in-out both; }
-#app[data-state=love] #armL  { animation: kiss-arm 5s ease-in-out both; }
-#app[data-state=love] #foreL { animation: kiss-fore 5s ease-in-out both; }
-#app[data-state=love] .eyes.open  { animation: l-open 5s both; }
-#app[data-state=love] .eyes.wink  { animation: l-wink 5s both; }
-#app[data-state=love] .eyes.happy { animation: l-happy 5s both; }
-#app[data-state=love] .mouth.smile { animation: l-smile 5s both; }
-#app[data-state=love] .mouth.kiss  { animation: l-kiss 5s both; }
-#app[data-state=love] .kissHeart { animation: kiss-fly 5s var(--out) both; }
-#app[data-state=love] #say { top: 64px; animation: say-love 5s both; }
-#app[data-state=love][data-v="1"] .mini { animation: rise 2.2s ease-out infinite; }
-#app[data-state=love][data-v="2"] .spark { animation: twinkle 1.4s ease-in-out infinite; }
-#app[data-state=love][data-v="0"] .s1, #app[data-state=love][data-v="0"] .s2 { animation: twinkle 1.6s ease-in-out infinite; }
-.m1 { animation-delay: 1.9s !important; } .m2 { animation-delay: 2.3s !important; } .m3 { animation-delay: 2.7s !important; } .m4 { animation-delay: 2.1s !important; } .m5 { animation-delay: 3s !important; }
-.s1 { animation-delay: 1.9s !important; } .s2 { animation-delay: 2.3s !important; } .s3 { animation-delay: 2.6s !important; } .s4 { animation-delay: 2.1s !important; }
-.mini { fill: #ff7d9c; transform-origin: center; transform-box: fill-box !important; }
-.spark { fill: var(--gold); transform-origin: center; transform-box: fill-box !important; }
-.kissHeart { fill: #ff4d7d; }
-@keyframes love-in { from { transform: translateY(200px); } to { transform: none; } }
-@keyframes love-out { from { transform: none; opacity: 1; } to { transform: translateY(200px); opacity: .6; } }
-@keyframes love-head { 0%, 14% { transform: none; } 22%, 34% { transform: rotate(-6deg); } 44%, 100% { transform: rotate(4deg); } }
-@keyframes kiss-arm { 0%, 22% { transform: rotate(10deg); } 32%, 36% { transform: rotate(167deg); } 44% { transform: rotate(122deg); } 58%, 100% { transform: rotate(10deg); } }
-@keyframes kiss-fore { 0%, 22% { transform: rotate(-12deg); } 32%, 36% { transform: rotate(80deg); } 44% { transform: rotate(-6deg); } 58%, 100% { transform: rotate(-12deg); } }
-@keyframes l-open  { 0%, 13.9% { opacity: 1; } 14%, 100% { opacity: 0; } }
-@keyframes l-wink  { 0%, 13.9% { opacity: 0; } 14%, 25.9% { opacity: 1; } 26%, 100% { opacity: 0; } }
-@keyframes l-happy { 0%, 25.9% { opacity: 0; } 26%, 100% { opacity: 1; } }
-@keyframes l-smile { 0%, 25.9%, 42%, 100% { opacity: 1; } 26%, 41.9% { opacity: 0; } }
-@keyframes l-kiss  { 0%, 25.9%, 42%, 100% { opacity: 0; } 26%, 41.9% { opacity: 1; } }
-@keyframes kiss-fly {
-  0%, 36% { opacity: 0; transform: translate(90px, 106px) scale(.2); }
-  41% { opacity: 1; transform: translate(50px, 104px) scale(.7) rotate(-10deg); }
-  56% { opacity: 1; transform: translate(30px, 34px) scale(1.5) rotate(-6deg); }
-  62%, 88% { opacity: 1; transform: translate(30px, 28px) scale(1.7); }
-  66%, 74%, 82% { transform: translate(30px, 28px) scale(1.95); }
-  100% { opacity: 0; transform: translate(30px, 12px) scale(1.4); }
-}
-@keyframes say-love { 0%, 42% { opacity: 0; transform: translateY(6px) scale(.8); } 50%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-@keyframes rise { 0% { opacity: 0; transform: translateY(20px) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50px) scale(1.1) rotate(14deg); } }
-@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(0) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(90deg); } }
-
-/* tap on her: giggle */
-#app.giggle #bob { animation: giggle .5s ease-in-out !important; }
-#app.giggle .eyes.open, #app.giggle .mouth.smile { opacity: 0 !important; animation: none !important; }
-#app.giggle .eyes.happy, #app.giggle .mouth.laugh { opacity: 1 !important; animation: none !important; }
-@keyframes giggle { 0%, 100% { transform: none; } 20% { transform: translateY(-6px) rotate(-3deg); } 45% { transform: translateY(0) rotate(3deg); } 70% { transform: translateY(-3px) rotate(-2deg); } }
+#app.goal #confetti i { animation: confetti 2s var(--delay) cubic-bezier(.3, .6, .6, 1) both; }
+@keyframes confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), 370px) rotate(var(--rot)); } }

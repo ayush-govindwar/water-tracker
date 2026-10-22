@@ -7,115 +7,23 @@
   <link rel="stylesheet" href="overlay.css">
 </head>
 <body>
-  <svg width="0" height="0" class="defs" aria-hidden="true">
-    <defs>
-      <symbol id="h" viewBox="0 0 32 29"><path d="M16 27.5C5 18.5 1.5 13 1.5 8.5a7 7 0 0 1 14.5-3 7 7 0 0 1 14.5 3c0 4.5-3.5 10-14.5 19z"/></symbol>
-      <symbol id="spark" viewBox="0 0 20 20"><path d="M10 0q1.2 8.8 10 10-8.8 1.2-10 10-1.2-8.8-10-10 8.8-1.2 10-10z"/></symbol>
-      <clipPath id="cup"><path d="M141 197h24l-3.5 36q-.5 3-3.5 3h-10q-3 0-3.5-3z"/></clipPath>
-    </defs>
-  </svg>
-
   <div id="app" data-state="hidden">
-    <!-- speech bubble: she talks to you -->
-    <div id="say"><span id="sayText">Drink with me!</span></div>
+    <!-- she's drawn frame-by-frame from assets/her/*.webp (cut out of the videos in art/) -->
+    <canvas id="her"></canvas>
 
-    <!-- the character: flat vector rig, every part animated with CSS (see overlay.css) -->
-    <svg id="her" viewBox="-30 -20 260 300" aria-hidden="true">
-      <g id="rig">
-        <ellipse class="shadow" cx="100" cy="270" rx="58" ry="6"/>
-        <g id="bob">
-          <path class="hair" d="M100 24C48 24 30 62 30 108L26 238Q26 252 40 252H160Q174 252 174 238L170 108C170 62 152 24 100 24Z"/>
+    <div id="say"><span id="sayText"></span></div>
 
-          <g id="torso">
-            <rect x="89" y="114" width="22" height="30" rx="6" fill="#A66B43"/>
-            <path d="M56 172Q56 148 80 142H120Q144 148 144 172V210H56Z" fill="#2A211D"/>
-            <path d="M50 204Q52 190 64 186L100 194L138 186Q148 190 150 204L152 262H48Z" fill="#F7F2E6"/>
-            <path d="M58 160Q62 144 80 142L96 142L114 208L56 218Z" fill="#F7F2E6"/>
-            <path d="M126 214Q124 238 126 256M138 212Q136 236 138 256" class="fold"/>
-            <path d="M48 250H152V266Q152 268 150 268H50Q48 268 48 266Z" fill="#E0AE44"/>
-            <path d="M48 250H152" stroke="#B07F26" stroke-width="2"/>
-            <path d="M88 146L110 244" class="sash"/>
-          </g>
-
-          <g id="head">
-            <ellipse cx="100" cy="86" rx="37" ry="39" fill="#C6865A"/>
-            <path class="hair" d="M61 96C55 54 76 32 100 32C124 32 145 54 139 96C135 70 121 58 106 57Q100 66 94 57C79 58 65 70 61 96Z"/>
-            <path d="M80 40Q94 32 112 36" stroke="#4B362A" stroke-width="4" fill="none" stroke-linecap="round"/>
-            <g class="brows">
-              <path class="line" d="M76 73q9-6 18-1M106 72q9-5 18 1"/>
-            </g>
-            <g class="brows-sad">
-              <path class="line" d="M77 76q8-1 17-7M106 69q9 1 17 7"/>
-            </g>
-            <g class="eyes open"><circle cx="85" cy="87" r="4.8"/><circle cx="115" cy="87" r="4.8"/><circle class="glint" cx="86.6" cy="85.2" r="1.5"/><circle class="glint" cx="116.6" cy="85.2" r="1.5"/></g>
-            <g class="eyes happy"><path class="line" d="M78 89q7-9 14 0M108 89q7-9 14 0"/></g>
-            <g class="eyes shut"><path class="line" d="M78 87q7 5 14 0M108 87q7 5 14 0"/></g>
-            <g class="eyes wink"><circle cx="85" cy="87" r="4.8"/><circle class="glint" cx="86.6" cy="85.2" r="1.5"/><path class="line" d="M108 89q7-9 14 0"/></g>
-            <ellipse class="blush" cx="72" cy="100" rx="7.5" ry="5"/><ellipse class="blush" cx="128" cy="100" rx="7.5" ry="5"/>
-            <path class="mouth smile line" d="M90 104q10 9 20 0"/>
-            <g class="mouth laugh"><path d="M84 102h32q-2 20-16 20t-16-20z" fill="#6E2A2A"/><path d="M86 102h28q-1 5-3 6h-22q-2-1-3-6z" fill="#fff"/><path d="M92 117q8-6 16 0q-8 5-16 0z" fill="#C4696A"/></g>
-            <ellipse class="mouth sip" cx="100" cy="108" rx="4" ry="4.5" fill="#6E2A2A"/>
-            <path class="mouth pout line" d="M92 112q8-6 16 0"/>
-            <path class="mouth kiss" d="M98 103q5 0 3 3.5q4 1 0 4q-3 1-4 1q4-2 1-3.5q3-1 0-2.5z" fill="#6E2A2A" stroke="#6E2A2A" stroke-width="2" stroke-linejoin="round"/>
-            <g class="tear"><path d="M127 92q3 5 0 7q-3-2 0-7z" fill="#6DBFDC"/></g>
-          </g>
-
-          <g id="armL">
-            <path class="limb" d="M66 154V186"/>
-            <g id="foreL">
-              <path class="limb" d="M66 186V212"/>
-              <path class="bangle" d="M58 205h16M58 210h16"/>
-              <circle class="fist" cx="66" cy="219" r="11"/>
-              <path class="knuckle" d="M62 213v9M66 212v10M70 213v9"/>
-            </g>
-          </g>
-
-          <g id="armR">
-            <path class="limb" d="M134 154V186"/>
-            <g id="foreR">
-              <path class="limb" d="M134 186V212"/>
-              <g id="glass">
-                <path d="M141 197h24l-3.5 36q-.5 3-3.5 3h-10q-3 0-3.5-3z" fill="#D9EEF5"/>
-                <g clip-path="url(#cup)"><g id="water"><path d="M120 212q11-4 22 0t22 0 22 0V260H120z" fill="#6DBFDC"/></g></g>
-                <path d="M141 197h24l-3.5 36q-.5 3-3.5 3h-10q-3 0-3.5-3z" fill="none" stroke="#7FA8B5" stroke-width="2.5" stroke-linejoin="round"/>
-                <path d="M146 203l2 26" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>
-              </g>
-              <path class="bangle" d="M126 205h16M126 210h16"/>
-              <circle class="fist" cx="137" cy="219" r="11"/>
-              <path class="knuckle" d="M141 213v9M145 214v8"/>
-            </g>
-          </g>
-        </g>
-      </g>
-
-      <!-- love scene props (only visible in love states) -->
-      <g id="loveFx">
-        <g class="kissHeart"><use href="#h" x="-14" y="-13" width="28" height="26"/></g>
-        <use class="mini m1" href="#h" x="40" y="60" width="14" height="13"/>
-        <use class="mini m2" href="#h" x="150" y="40" width="12" height="11"/>
-        <use class="mini m3" href="#h" x="20" y="120" width="12" height="11"/>
-        <use class="mini m4" href="#h" x="168" y="110" width="15" height="14"/>
-        <use class="mini m5" href="#h" x="80" y="10" width="11" height="10"/>
-        <use class="spark s1" href="#spark" x="30" y="30" width="14" height="14"/>
-        <use class="spark s2" href="#spark" x="172" y="64" width="12" height="12"/>
-        <use class="spark s3" href="#spark" x="10" y="170" width="12" height="12"/>
-        <use class="spark s4" href="#spark" x="180" y="160" width="14" height="14"/>
-      </g>
-    </svg>
-
-    <!-- confetti for "goal reached" -->
+    <div id="fx">
+      <span class="heart h1">♥</span><span class="heart h2">♥</span><span class="heart h3">♥</span><span class="heart h4">♥</span><span class="heart h5">♥</span>
+      <span class="spark s1">✦</span><span class="spark s2">✦</span><span class="spark s3">✦</span><span class="spark s4">✦</span>
+    </div>
     <div id="confetti"></div>
 
-    <!-- card (layout from the design: progress cups + two buttons) -->
     <div id="card">
-      <div class="row">
-        <span id="count">0 of 8 today</span>
-        <span id="cups"></span>
-      </div>
-      <div class="btns">
-        <button id="drink" type="button">I drank it</button>
-        <button id="snooze" type="button">Snooze 5 min</button>
-      </div>
+      <div id="count">0 of 8 today</div>
+      <div id="cups"></div>
+      <button id="drink" type="button">I drank it</button>
+      <button id="snooze" type="button">Snooze 5 min</button>
     </div>
   </div>
   <script src="overlay.js"></script>

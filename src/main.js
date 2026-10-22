@@ -1,6 +1,7 @@
 'use strict';
 const { app, BrowserWindow, Tray, Menu, screen, powerMonitor, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const Store = require('electron-store');
 const { Scheduler, sanitize } = require('./scheduler');
 
@@ -8,14 +9,15 @@ const { Scheduler, sanitize } = require('./scheduler');
 if (process.env.WT_USER_DATA) app.setPath('userData', process.env.WT_USER_DATA);
 const clock = { offset: 0 };
 
-const OVERLAY = { w: 300, h: 340 }; // widget size from the design
+const OVERLAY = { w: 330, h: 360 };
 const TICK_MS = 10000;
-const EXIT_FALLBACK_MS = 4000; // hide anyway if the renderer never reports exit-done
+const EXIT_FALLBACK_MS = 9000; // hide anyway if the renderer never reports exit-done
 const LOVE_FALLBACK_MS = 12000;
-const LOVE_VARIANTS = 3; // heart animations in overlay.css
 const DESTROY_MS = Number(process.env.WT_DESTROY_MS) || 30000; // overlay renderer is freed this long after hiding; idle app = main + tray only
 const asset = (f) => path.join(__dirname, '..', 'assets', f);
 const preload = path.join(__dirname, 'preload.js');
+let atlas;
+const atlasMeta = () => (atlas ??= JSON.parse(fs.readFileSync(asset('her/atlas.json'), 'utf8'))); // frame layout from scripts/video-to-sprites.js
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -71,7 +73,7 @@ async function showOverlay() {
   overlay.setIgnoreMouseEvents(true, { forward: true }); // transparent parts click through; renderer flips it over the card/her
   placeOverlay();
   overlay.setAlwaysOnTop(true, 'screen-saver'); // re-assert: other topmost windows can displace us on Windows
-  overlay.webContents.send('overlay:show', { ...sched.status(), snoozeMin: sched.settings.snoozeMin });
+  overlay.webContents.send('overlay:show', { ...sched.status(), snoozeMin: sched.settings.snoozeMin, atlas: atlasMeta() });
   overlay.showInactive();
 }
 
@@ -88,7 +90,7 @@ async function showLove() {
   overlay.setIgnoreMouseEvents(true);
   placeOverlay();
   overlay.setAlwaysOnTop(true, 'screen-saver');
-  overlay.webContents.send('overlay:love', { variant: Math.floor(Math.random() * LOVE_VARIANTS) });
+  overlay.webContents.send('overlay:love', { atlas: atlasMeta() });
   overlay.showInactive();
   hideTimer = setTimeout(() => {
     sched.endLove();
